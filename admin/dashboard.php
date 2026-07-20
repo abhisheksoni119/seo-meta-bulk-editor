@@ -8,131 +8,224 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 <div class="wrap">
 
-<h1>🚀 SEO Meta Bulk Editor</h1>
+    <h1>🚀 SEO Meta Bulk Editor</h1>
 
-<p>Bulk update SEO Meta Titles and Meta Descriptions for WordPress pages.</p>
+    <p>Bulk update SEO Meta Titles and Meta Descriptions for WordPress pages.</p>
 
-<form method="post">
+    <form method="post">
 
-<textarea
-name="bulk_data"
-rows="18"
-style="width:100%;font-family:monospace;"
-placeholder="Paste your data here...
+        <textarea
+            name="bulk_data"
+            rows="18"
+            style="width:100%;font-family:monospace;"
+            placeholder="Paste your data here...
 
 URL | SEO Title | Meta Description"><?php
 
-if ( isset($_POST['bulk_data']) ) {
-    echo esc_textarea($_POST['bulk_data']);
-}
+            if ( isset( $_POST['bulk_data'] ) ) {
+                echo esc_textarea( $_POST['bulk_data'] );
+            }
 
-?></textarea>
+        ?></textarea>
 
-<p>
+        <p>
 
-<label>
+            <label>
 
-<input type="checkbox" name="first_row_header">
+                <input type="checkbox" name="first_row_header">
 
-First row contains headers
+                First row contains headers
 
-</label>
+            </label>
 
-</p>
+        </p>
 
-<p>
+        <p>
 
-<button class="button button-primary">
+            <button class="button button-primary">
 
-Validate Data
+                Validate Data
 
-</button>
+            </button>
 
-</p>
+        </p>
 
-</form>
+    </form>
 
 <?php
 
-if ( isset($_POST['bulk_data']) ) :
+if ( isset( $_POST['bulk_data'] ) ) :
 
-$rows = smbe_parse_bulk_data( trim($_POST['bulk_data']) );
+    $parsed = smbe_parse_bulk_data( trim( $_POST['bulk_data'] ) );
+
+$result = smbe_validate_rows( $parsed );
+
+$rows = $result['rows'];
+
+$summary = $result['summary'];
 
 ?>
+
+<div style="background:#fff;border:1px solid #ccd0d4;padding:18px;margin:20px 0;">
+
+    <h2 style="margin-top:0;">Validation Summary</h2>
+
+    <table>
+
+        <tr>
+
+            <td style="padding-right:40px;"><strong>Total Rows</strong></td>
+
+            <td><?php echo esc_html( $summary['total'] ); ?></td>
+
+        </tr>
+
+        <tr>
+
+            <td><strong>✅ Ready</strong></td>
+
+            <td><?php echo esc_html( $summary['success'] ); ?></td>
+
+        </tr>
+
+        <tr>
+
+            <td><strong>⚠ Warnings</strong></td>
+
+            <td><?php echo esc_html( $summary['warning'] ); ?></td>
+
+        </tr>
+
+        <tr>
+
+            <td><strong>❌ Errors</strong></td>
+
+            <td><?php echo esc_html( $summary['error'] ); ?></td>
+
+        </tr>
+
+    </table>
+
+</div>
 
 <h2 style="margin-top:30px;">Preview</h2>
 
 <table class="widefat striped">
 
-<thead>
+    <thead>
 
-<tr>
+        <tr>
 
-<th width="70">Status</th>
+            <th width="70">Status</th>
 
-<th width="70">ID</th>
+            <th width="180">Validation</th>
 
-<th width="90">Type</th>
+            <th width="70">ID</th>
 
-<th>Current Page</th>
+            <th width="90">Type</th>
 
-<th>New SEO Title</th>
+            <th>Current Page</th>
 
-<th>New Meta Description</th>
+            <th>New SEO Title</th>
 
-</tr>
+            <th>New Meta Description</th>
 
-</thead>
+        </tr>
 
-<tbody>
+    </thead>
 
-<?php
+    <tbody>
 
-foreach ( $rows as $row ) :
+    <?php foreach ( $rows as $row ) : ?>
 
-$post_id = smbe_find_post_by_url( $row['url'] );
+        <?php
 
-if ( $post_id ) {
+        $post_id = smbe_find_post_by_url( $row['url'] );
 
-$status = "✅";
+        if ( $post_id ) {
 
-$post = get_post( $post_id );
+            $post = get_post( $post_id );
 
-$type = get_post_type( $post_id );
+            $type = get_post_type( $post_id );
 
-$current_title = $post->post_title;
+            $current_title = $post->post_title;
 
-} else {
+        } else {
 
-$status = "❌";
+            $post_id = "-";
+            $type = "-";
+            $current_title = "Page Not Found";
 
-$type = "-";
+        }
 
-$current_title = "Page Not Found";
+        ?>
 
-}
+        <tr>
 
-?>
+            <td>
 
-<tr>
+                <?php
 
-<td><?php echo $status; ?></td>
+                switch ( $row['status'] ) {
 
-<td><?php echo $post_id ?: "-"; ?></td>
+                    case 'success':
+                        echo '✅';
+                        break;
 
-<td><?php echo esc_html($type); ?></td>
+                    case 'warning':
+                        echo '⚠️';
+                        break;
 
-<td><?php echo esc_html($current_title); ?></td>
+                    default:
+                        echo '❌';
 
-<td><?php echo esc_html($row['title']); ?></td>
+                }
 
-<td><?php echo esc_html($row['description']); ?></td>
+                ?>
 
-</tr>
+            </td>
 
-<?php endforeach; ?>
+            <td>
 
-</tbody>
+                <?php echo esc_html( $row['validation'] ); ?>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $post_id ); ?>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $type ); ?>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $current_title ); ?>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $row['title'] ); ?>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $row['description'] ); ?>
+
+            </td>
+
+        </tr>
+
+    <?php endforeach; ?>
+
+    </tbody>
 
 </table>
 
