@@ -1,468 +1,247 @@
 <?php
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
+}
+
+// Collect POST values.
+$bulk_data        = isset( $_POST['bulk_data'] ) ? wp_unslash( $_POST['bulk_data'] ) : '';
+$first_row_header = isset( $_POST['first_row_header'] );
+$smbe_action      = isset( $_POST['smbe_action'] ) ? sanitize_key( $_POST['smbe_action'] ) : '';
+
+// Run parse + validate when either submit button was used.
+$validated     = false;
+$rows          = array();
+$summary       = array();
+$update_result = null;
+
+if ( $smbe_action && ! empty( $bulk_data ) ) {
+
+	// Capability check — applies to both validate and update actions.
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( esc_html__( 'You do not have permission to perform this action.', 'seo-meta-bulk-editor' ) );
+	}
+
+	// Nonce verification — applies to both validate and update actions.
+	if ( ! isset( $_POST['smbe_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_POST['smbe_nonce'] ), 'smbe_bulk_update' ) ) {
+		wp_die( esc_html__( 'Security check failed.', 'seo-meta-bulk-editor' ) );
+	}
+
+	$data_to_parse = trim( $bulk_data );
+
+	// Strip header row before parsing if the checkbox was checked.
+	if ( $first_row_header ) {
+		$lines         = explode( "\n", $data_to_parse );
+		array_shift( $lines );
+		$data_to_parse = implode( "\n", $lines );
+	}
+
+	$parsed    = smbe_parse_bulk_data( $data_to_parse );
+	$result    = smbe_validate_rows( $parsed );
+	$rows      = $result['rows'];
+	$summary   = $result['summary'];
+	$validated = true;
+
+}
+
+// Update branch — runs only when the "Update Selected" button was pressed.
+if ( 'update' === $smbe_action && $validated ) {
+
+	// Sanitise the selected post IDs submitted via checkboxes.
+	$selected_post_ids = array();
+
+	if ( isset( $_POST['selected_rows'] ) && is_array( $_POST['selected_rows'] ) ) {
+		foreach ( $_POST['selected_rows'] as $raw_id ) {
+			$post_id = absint( $raw_id );
+			if ( $post_id > 0 ) {
+				$selected_post_ids[] = $post_id;
+			}
+		}
+	}
+
+	if ( empty( $selected_post_ids ) ) {
+		$update_result = 'no_selection';
+	} else {
+		$update_result = smbe_update_rows( $rows, $selected_post_ids );
+	}
+
 }
 
 ?>
 
 <div class="wrap">
 
-    <h1>🚀 SEO Meta Bulk Editor</h1>
-
-    <p>Bulk update SEO Meta Titles and Meta Descriptions for WordPress pages.</p>
-
-    <form method="post">
-
-        <textarea
-            name="bulk_data"
-            rows="18"
-            style="width:100%;font-family:monospace;"
-            placeholder="Paste your data here...
-
-URL | SEO Title | Meta Description"><?php
-
-            if ( isset( $_POST['bulk_data'] ) ) {
-                echo esc_textarea( $_POST['bulk_data'] );
-            }
-
-        ?></textarea>
-
-        <p>
-
-            <label>
-
-                <input
-                    type="checkbox"
-                    name="first_row_header"
-                    <?php checked( isset( $_POST['first_row_header'] ) ); ?>>
-
-                First row contains headers
-
-            </label>
-
-        </p>
-
-        <p>
-
-            <button class="button button-primary">
-
-                Validate Data
-
-            </button>
-
-        </p>
-
-    </form>
-
-<?php
-
-/*
-|--------------------------------------------------------------------------
-| Empty Data Warning
-|--------------------------------------------------------------------------
-*/
-
-if (
-    isset( $_POST['bulk_data'] ) &&
-    trim( $_POST['bulk_data'] ) === ''
-) :
-?>
-
-<div class="notice notice-warning">
-
-    <p>
-
-        <strong>Validation Failed.</strong>
-
-        Please paste your SEO data before clicking
-        <strong>Validate Data</strong>.
-
-    </p>
-
-</div>
-
-<?php
-endif;
-
-/*
-|--------------------------------------------------------------------------
-| Start Validation
-|--------------------------------------------------------------------------
-*/
-
-if (
-    isset( $_POST['bulk_data'] ) &&
-    trim( $_POST['bulk_data'] ) !== ''
-) :
-
-    $parsed = smbe_parse_bulk_data(
-        trim( $_POST['bulk_data'] )
-    );
-
-    if ( empty( $parsed ) ) :
-?>
-
-<div class="notice notice-warning">
-
-    <p>
-
-        <strong>Validation Failed.</strong>
-
-        No valid SEO data was found.
-
-        Please check your format and try again.
-
-    </p>
-
-</div>
-
-<?php
-
-    else :
-
-        $result = smbe_validate_rows( $parsed );
-
-        $rows = $result['rows'];
-
-        $summary = $result['summary'];
-
-?>
-
-<div style="background:#fff;border:1px solid #ccd0d4;padding:18px;margin:20px 0;">
-
-    <h2 style="margin-top:0;">Validation Summary</h2>
-
-    <table>
-
-        <tr>
-
-            <td style="padding-right:40px;">
-                <strong>Total Rows</strong>
-            </td>
-
-            <td>
-
-                <?php echo esc_html( $summary['total'] ); ?>
-
-            </td>
-
-        </tr>
-
-        <tr>
-
-            <td>
-
-                <strong>✅ Ready</strong>
-
-            </td>
-
-            <td>
-
-                <?php echo esc_html( $summary['success'] ); ?>
-
-            </td>
-
-        </tr>
-
-        <tr>
-
-            <td>
-
-                <strong>⚠ Warnings</strong>
-
-            </td>
-
-            <td>
-
-                <?php echo esc_html( $summary['warning'] ); ?>
-
-            </td>
-
-        </tr>
-
-        <tr>
-
-            <td>
-
-                <strong>❌ Errors</strong>
-
-            </td>
-
-            <td>
-
-                <?php echo esc_html( $summary['error'] ); ?>
-
-            </td>
-
-        </tr>
-
-    </table>
-
-</div>
-
-<div style="display:flex;justify-content:space-between;align-items:center;margin:30px 0 15px;">
-
-    <h2 style="margin:0;">Preview</h2>
-
-    <button
-        type="button"
-        class="button button-primary"
-        disabled
-        id="smbe-update-selected">
-
-        Update Selected
-
-    </button>
-
-</div>
-
-<p>
-
-    <label>
-
-        <input
-            type="checkbox"
-            id="smbe-select-all"
-            checked>
-
-        <strong>Select All Ready &amp; Warning Rows</strong>
-
-    </label>
-
-</p>
-
-<table class="widefat striped">
-
-    <thead>
-
-        <tr>
-
-            <th width="45">
-
-                <input
-                    type="checkbox"
-                    id="smbe-select-all-table"
-                    checked>
-
-            </th>
-
-            <th width="70">Status</th>
-
-            <th width="180">Validation</th>
-
-            <th width="70">ID</th>
-
-            <th width="90">Type</th>
-
-            <th>Current Page</th>
-
-            <th>New SEO Title</th>
-
-            <th>New Meta Description</th>
-
-        </tr>
-
-    </thead>
-
-    <tbody>
-
-<?php foreach ( $rows as $row ) : ?>
-
-<?php
-
-$post_id = smbe_find_post_by_url( $row['url'] );
-
-if ( $post_id ) {
-
-    $post = get_post( $post_id );
-
-    $type = get_post_type( $post_id );
-
-    $current_title = $post->post_title;
-
-} else {
-
-    $post_id = "-";
-
-    $type = "-";
-
-    $current_title = "Page Not Found";
-
-}
-
-?>
-
-<tr>
-
-    <td>
-
-        <input
-            type="checkbox"
-            class="smbe-row-checkbox"
-            <?php checked( $row['selected'] ); ?>
-            <?php disabled( ! $row['selected'] ); ?>>
-
-    </td>
-
-    <td>
-
-<?php
-
-switch ( $row['status'] ) {
-
-    case 'success':
-
-        echo '✅';
-
-        break;
-
-    case 'warning':
-
-        echo '⚠️';
-
-        break;
-
-    default:
-
-        echo '❌';
-
-        break;
-
-}
-
-?>
-
-    </td>
-
-    <td>
-
-        <?php echo esc_html( $row['validation'] ); ?>
-
-    </td>
-
-    <td>
-
-        <?php echo esc_html( $post_id ); ?>
-
-    </td>
-
-    <td>
-
-        <?php echo esc_html( $type ); ?>
-
-    </td>
-
-    <td>
-
-        <?php echo esc_html( $current_title ); ?>
-
-    </td>
-
-    <td>
-
-        <?php echo esc_html( $row['title'] ); ?>
-
-    </td>
-
-    <td>
-
-        <?php echo esc_html( $row['description'] ); ?>
-
-    </td>
-
-</tr>
-
-<?php endforeach; ?>
-
-    </tbody>
-
-</table>
-
-<script>
-
-document.addEventListener('DOMContentLoaded', function () {
-
-    const selectAllTop = document.getElementById('smbe-select-all');
-    const selectAllTable = document.getElementById('smbe-select-all-table');
-
-    const checkboxes = document.querySelectorAll('.smbe-row-checkbox:not(:disabled)');
-
-    function toggleAll(state) {
-
-        checkboxes.forEach(function (checkbox) {
-
-            checkbox.checked = state;
-
-        });
-
-    }
-
-    if (selectAllTop) {
-
-        selectAllTop.addEventListener('change', function () {
-
-            toggleAll(this.checked);
-
-            if (selectAllTable) {
-                selectAllTable.checked = this.checked;
-            }
-
-        });
-
-    }
-
-    if (selectAllTable) {
-
-        selectAllTable.addEventListener('change', function () {
-
-            toggleAll(this.checked);
-
-            if (selectAllTop) {
-                selectAllTop.checked = this.checked;
-            }
-
-        });
-
-    }
-
-    // Keep both "Select All" checkboxes in sync
-    checkboxes.forEach(function (checkbox) {
-
-        checkbox.addEventListener('change', function () {
-
-            const checked = document.querySelectorAll(
-                '.smbe-row-checkbox:not(:disabled):checked'
-            ).length;
-
-            const total = document.querySelectorAll(
-                '.smbe-row-checkbox:not(:disabled)'
-            ).length;
-
-            const allChecked = checked === total;
-
-            if (selectAllTop) {
-                selectAllTop.checked = allChecked;
-            }
-
-            if (selectAllTable) {
-                selectAllTable.checked = allChecked;
-            }
-
-        });
-
-    });
-
-});
-
-</script>
-
-<?php
-
-    endif;
-
-endif;
-
-?>
+	<h1>🚀 SEO Meta Bulk Editor</h1>
+
+	<p>Bulk update SEO Meta Titles and Meta Descriptions for WordPress pages.</p>
+
+	<form method="post">
+
+		<?php wp_nonce_field( 'smbe_bulk_update', 'smbe_nonce' ); ?>
+
+		<textarea
+			name="bulk_data"
+			rows="18"
+			style="width:100%;font-family:monospace;"
+			placeholder="Paste your data here...
+
+URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></textarea>
+
+		<p>
+			<label>
+				<input type="checkbox" name="first_row_header"<?php checked( $first_row_header ); ?>>
+				First row contains headers
+			</label>
+		</p>
+
+		<p>
+			<button type="submit" name="smbe_action" value="validate" class="button button-primary">
+				Validate Data
+			</button>
+		</p>
+
+		<?php if ( $validated ) : ?>
+
+		<div style="background:#fff;border:1px solid #ccd0d4;padding:18px;margin:20px 0;">
+
+			<h2 style="margin-top:0;">Validation Summary</h2>
+
+			<table>
+
+				<tr>
+					<td style="padding-right:40px;"><strong>Total Rows</strong></td>
+					<td><?php echo esc_html( $summary['total'] ); ?></td>
+				</tr>
+
+				<tr>
+					<td><strong>✅ Ready</strong></td>
+					<td><?php echo esc_html( $summary['success'] ); ?></td>
+				</tr>
+
+				<tr>
+					<td><strong>⚠ Warnings</strong></td>
+					<td><?php echo esc_html( $summary['warning'] ); ?></td>
+				</tr>
+
+				<tr>
+					<td><strong>❌ Errors</strong></td>
+					<td><?php echo esc_html( $summary['error'] ); ?></td>
+				</tr>
+
+			</table>
+
+		</div>
+
+		<?php if ( 'no_selection' === $update_result ) : ?>
+		<div class="notice notice-warning">
+			<p>Please select at least one row before updating.</p>
+		</div>
+		<?php elseif ( is_array( $update_result ) ) : ?>
+		<div class="notice notice-success">
+			<p>
+				<strong>Update complete.</strong>
+				Updated: <?php echo esc_html( $update_result['updated'] ); ?> &nbsp;|&nbsp;
+				Skipped: <?php echo esc_html( $update_result['skipped'] ); ?> &nbsp;|&nbsp;
+				Failed: <?php echo esc_html( $update_result['failed'] ); ?>
+			</p>
+		</div>
+		<?php endif; ?>
+
+		<h2 style="margin-top:30px;">Preview</h2>
+
+		<table class="widefat striped">
+
+			<thead>
+				<tr>
+					<th width="40"></th>
+					<th width="70">Status</th>
+					<th width="180">Validation</th>
+					<th width="70">ID</th>
+					<th width="90">Type</th>
+					<th>Current Page</th>
+					<th>New SEO Title</th>
+					<th>New Meta Description</th>
+				</tr>
+			</thead>
+
+			<tbody>
+
+			<?php foreach ( $rows as $index => $row ) : ?>
+
+				<?php
+				$found_post_id = smbe_find_post_by_url( $row['url'] );
+
+				if ( $found_post_id ) {
+					$post          = get_post( $found_post_id );
+					$type          = get_post_type( $found_post_id );
+					$current_title = $post->post_title;
+					$display_id    = $found_post_id;
+				} else {
+					$display_id    = '-';
+					$type          = '-';
+					$current_title = 'Page Not Found';
+				}
+
+				// Only rows that resolved to a real post and are not hard errors can be selected.
+				$is_updatable = $found_post_id > 0 && 'error' !== $row['status'];
+				?>
+
+				<tr>
+
+					<td>
+						<?php if ( $is_updatable ) : ?>
+						<input
+							type="checkbox"
+							name="selected_rows[]"
+							value="<?php echo esc_attr( $found_post_id ); ?>"
+							checked
+						>
+						<?php endif; ?>
+					</td>
+
+					<td>
+						<?php
+						switch ( $row['status'] ) {
+							case 'success':
+								echo '✅';
+								break;
+							case 'warning':
+								echo '⚠️';
+								break;
+							default:
+								echo '❌';
+						}
+						?>
+					</td>
+
+					<td><?php echo esc_html( $row['validation'] ); ?></td>
+
+					<td><?php echo esc_html( $display_id ); ?></td>
+
+					<td><?php echo esc_html( $type ); ?></td>
+
+					<td><?php echo esc_html( $current_title ); ?></td>
+
+					<td><?php echo esc_html( $row['title'] ); ?></td>
+
+					<td><?php echo esc_html( $row['description'] ); ?></td>
+
+				</tr>
+
+			<?php endforeach; ?>
+
+			</tbody>
+
+		</table>
+
+		<p style="margin-top:16px;">
+			<button type="submit" name="smbe_action" value="update" class="button button-primary">
+				Update Selected
+			</button>
+		</p>
+
+		<?php endif; ?>
+
+	</form>
 
 </div>
