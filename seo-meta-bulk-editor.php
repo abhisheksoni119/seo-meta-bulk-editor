@@ -1,11 +1,13 @@
 <?php
 /**
  * Plugin Name: SEO Meta Bulk Editor
+ * Plugin URI: https://github.com/abhisheksoni119/seo-meta-bulk-editor
  * Description: Bulk update SEO titles and meta descriptions for WordPress pages using a simple URL-based import.
- * Version: 0.1.0
+ * Version: 1.0.0
  * Requires at least: 6.5
  * Requires PHP: 8.0
  * Author: Abhishek Soni
+ * Author URI: https://github.com/abhisheksoni119
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: seo-meta-bulk-editor

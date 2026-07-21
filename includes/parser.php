@@ -1,33 +1,52 @@
 <?php
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 function smbe_parse_bulk_data( $bulk_data ) {
 
-    $rows = explode( "\n", trim( $bulk_data ) );
+	$rows = preg_split( "/\r\n|\r|\n/", trim( $bulk_data ) );
 
-    $parsed = [];
+	$parsed = [];
 
-    foreach ( $rows as $row ) {
+	foreach ( $rows as $row ) {
 
-        $row = trim( $row );
+		$row = trim( $row );
 
-        if ( empty( $row ) ) {
-            continue;
-        }
+		if ( empty( $row ) ) {
+			continue;
+		}
 
-        $columns = array_map( 'trim', explode( '|', $row ) );
+		/*
+		 * Supported formats:
+		 * 1. Pipe-separated
+		 *    URL | SEO Title | Meta Description
+		 *
+		 * 2. Tab-separated
+		 *    (Excel / Google Sheets copy-paste)
+		 */
 
-        $parsed[] = [
-            'url'         => $columns[0] ?? '',
-            'title'       => $columns[1] ?? '',
-            'description' => $columns[2] ?? '',
-        ];
+		if ( strpos( $row, "\t" ) !== false ) {
 
-    }
+			$columns = preg_split( "/\t+/", $row );
 
-    return $parsed;
+		} else {
+
+			$columns = preg_split( "/\s*\|\s*/", $row );
+
+		}
+
+		$columns = array_map( 'trim', $columns );
+
+		$parsed[] = [
+			'url'         => $columns[0] ?? '',
+			'title'       => $columns[1] ?? '',
+			'description' => $columns[2] ?? '',
+		];
+
+	}
+
+	return $parsed;
 
 }
