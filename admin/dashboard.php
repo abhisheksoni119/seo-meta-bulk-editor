@@ -32,7 +32,10 @@ URL | SEO Title | Meta Description"><?php
 
             <label>
 
-                <input type="checkbox" name="first_row_header">
+                <input
+                    type="checkbox"
+                    name="first_row_header"
+                    <?php checked( isset( $_POST['first_row_header'] ) ); ?>>
 
                 First row contains headers
 
@@ -54,15 +57,75 @@ URL | SEO Title | Meta Description"><?php
 
 <?php
 
-if ( isset( $_POST['bulk_data'] ) ) :
+/*
+|--------------------------------------------------------------------------
+| Empty Data Warning
+|--------------------------------------------------------------------------
+*/
 
-    $parsed = smbe_parse_bulk_data( trim( $_POST['bulk_data'] ) );
+if (
+    isset( $_POST['bulk_data'] ) &&
+    trim( $_POST['bulk_data'] ) === ''
+) :
+?>
 
-$result = smbe_validate_rows( $parsed );
+<div class="notice notice-warning">
 
-$rows = $result['rows'];
+    <p>
 
-$summary = $result['summary'];
+        <strong>Validation Failed.</strong>
+
+        Please paste your SEO data before clicking
+        <strong>Validate Data</strong>.
+
+    </p>
+
+</div>
+
+<?php
+endif;
+
+/*
+|--------------------------------------------------------------------------
+| Start Validation
+|--------------------------------------------------------------------------
+*/
+
+if (
+    isset( $_POST['bulk_data'] ) &&
+    trim( $_POST['bulk_data'] ) !== ''
+) :
+
+    $parsed = smbe_parse_bulk_data(
+        trim( $_POST['bulk_data'] )
+    );
+
+    if ( empty( $parsed ) ) :
+?>
+
+<div class="notice notice-warning">
+
+    <p>
+
+        <strong>Validation Failed.</strong>
+
+        No valid SEO data was found.
+
+        Please check your format and try again.
+
+    </p>
+
+</div>
+
+<?php
+
+    else :
+
+        $result = smbe_validate_rows( $parsed );
+
+        $rows = $result['rows'];
+
+        $summary = $result['summary'];
 
 ?>
 
@@ -74,33 +137,63 @@ $summary = $result['summary'];
 
         <tr>
 
-            <td style="padding-right:40px;"><strong>Total Rows</strong></td>
+            <td style="padding-right:40px;">
+                <strong>Total Rows</strong>
+            </td>
 
-            <td><?php echo esc_html( $summary['total'] ); ?></td>
+            <td>
 
-        </tr>
+                <?php echo esc_html( $summary['total'] ); ?>
 
-        <tr>
-
-            <td><strong>✅ Ready</strong></td>
-
-            <td><?php echo esc_html( $summary['success'] ); ?></td>
+            </td>
 
         </tr>
 
         <tr>
 
-            <td><strong>⚠ Warnings</strong></td>
+            <td>
 
-            <td><?php echo esc_html( $summary['warning'] ); ?></td>
+                <strong>✅ Ready</strong>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $summary['success'] ); ?>
+
+            </td>
 
         </tr>
 
         <tr>
 
-            <td><strong>❌ Errors</strong></td>
+            <td>
 
-            <td><?php echo esc_html( $summary['error'] ); ?></td>
+                <strong>⚠ Warnings</strong>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $summary['warning'] ); ?>
+
+            </td>
+
+        </tr>
+
+        <tr>
+
+            <td>
+
+                <strong>❌ Errors</strong>
+
+            </td>
+
+            <td>
+
+                <?php echo esc_html( $summary['error'] ); ?>
+
+            </td>
 
         </tr>
 
@@ -108,13 +201,51 @@ $summary = $result['summary'];
 
 </div>
 
-<h2 style="margin-top:30px;">Preview</h2>
+<div style="display:flex;justify-content:space-between;align-items:center;margin:30px 0 15px;">
+
+    <h2 style="margin:0;">Preview</h2>
+
+    <button
+        type="button"
+        class="button button-primary"
+        disabled
+        id="smbe-update-selected">
+
+        Update Selected
+
+    </button>
+
+</div>
+
+<p>
+
+    <label>
+
+        <input
+            type="checkbox"
+            id="smbe-select-all"
+            checked>
+
+        <strong>Select All Ready &amp; Warning Rows</strong>
+
+    </label>
+
+</p>
 
 <table class="widefat striped">
 
     <thead>
 
         <tr>
+
+            <th width="45">
+
+                <input
+                    type="checkbox"
+                    id="smbe-select-all-table"
+                    checked>
+
+            </th>
 
             <th width="70">Status</th>
 
@@ -136,99 +267,202 @@ $summary = $result['summary'];
 
     <tbody>
 
-    <?php foreach ( $rows as $row ) : ?>
+<?php foreach ( $rows as $row ) : ?>
 
-        <?php
+<?php
 
-        $post_id = smbe_find_post_by_url( $row['url'] );
+$post_id = smbe_find_post_by_url( $row['url'] );
 
-        if ( $post_id ) {
+if ( $post_id ) {
 
-            $post = get_post( $post_id );
+    $post = get_post( $post_id );
 
-            $type = get_post_type( $post_id );
+    $type = get_post_type( $post_id );
 
-            $current_title = $post->post_title;
+    $current_title = $post->post_title;
 
-        } else {
+} else {
 
-            $post_id = "-";
-            $type = "-";
-            $current_title = "Page Not Found";
+    $post_id = "-";
 
-        }
+    $type = "-";
 
-        ?>
+    $current_title = "Page Not Found";
 
-        <tr>
+}
 
-            <td>
+?>
 
-                <?php
+<tr>
 
-                switch ( $row['status'] ) {
+    <td>
 
-                    case 'success':
-                        echo '✅';
-                        break;
+        <input
+            type="checkbox"
+            class="smbe-row-checkbox"
+            <?php checked( $row['selected'] ); ?>
+            <?php disabled( ! $row['selected'] ); ?>>
 
-                    case 'warning':
-                        echo '⚠️';
-                        break;
+    </td>
 
-                    default:
-                        echo '❌';
+    <td>
 
-                }
+<?php
 
-                ?>
+switch ( $row['status'] ) {
 
-            </td>
+    case 'success':
 
-            <td>
+        echo '✅';
 
-                <?php echo esc_html( $row['validation'] ); ?>
+        break;
 
-            </td>
+    case 'warning':
 
-            <td>
+        echo '⚠️';
 
-                <?php echo esc_html( $post_id ); ?>
+        break;
 
-            </td>
+    default:
 
-            <td>
+        echo '❌';
 
-                <?php echo esc_html( $type ); ?>
+        break;
 
-            </td>
+}
 
-            <td>
+?>
 
-                <?php echo esc_html( $current_title ); ?>
+    </td>
 
-            </td>
+    <td>
 
-            <td>
+        <?php echo esc_html( $row['validation'] ); ?>
 
-                <?php echo esc_html( $row['title'] ); ?>
+    </td>
 
-            </td>
+    <td>
 
-            <td>
+        <?php echo esc_html( $post_id ); ?>
 
-                <?php echo esc_html( $row['description'] ); ?>
+    </td>
 
-            </td>
+    <td>
 
-        </tr>
+        <?php echo esc_html( $type ); ?>
 
-    <?php endforeach; ?>
+    </td>
+
+    <td>
+
+        <?php echo esc_html( $current_title ); ?>
+
+    </td>
+
+    <td>
+
+        <?php echo esc_html( $row['title'] ); ?>
+
+    </td>
+
+    <td>
+
+        <?php echo esc_html( $row['description'] ); ?>
+
+    </td>
+
+</tr>
+
+<?php endforeach; ?>
 
     </tbody>
 
 </table>
 
-<?php endif; ?>
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const selectAllTop = document.getElementById('smbe-select-all');
+    const selectAllTable = document.getElementById('smbe-select-all-table');
+
+    const checkboxes = document.querySelectorAll('.smbe-row-checkbox:not(:disabled)');
+
+    function toggleAll(state) {
+
+        checkboxes.forEach(function (checkbox) {
+
+            checkbox.checked = state;
+
+        });
+
+    }
+
+    if (selectAllTop) {
+
+        selectAllTop.addEventListener('change', function () {
+
+            toggleAll(this.checked);
+
+            if (selectAllTable) {
+                selectAllTable.checked = this.checked;
+            }
+
+        });
+
+    }
+
+    if (selectAllTable) {
+
+        selectAllTable.addEventListener('change', function () {
+
+            toggleAll(this.checked);
+
+            if (selectAllTop) {
+                selectAllTop.checked = this.checked;
+            }
+
+        });
+
+    }
+
+    // Keep both "Select All" checkboxes in sync
+    checkboxes.forEach(function (checkbox) {
+
+        checkbox.addEventListener('change', function () {
+
+            const checked = document.querySelectorAll(
+                '.smbe-row-checkbox:not(:disabled):checked'
+            ).length;
+
+            const total = document.querySelectorAll(
+                '.smbe-row-checkbox:not(:disabled)'
+            ).length;
+
+            const allChecked = checked === total;
+
+            if (selectAllTop) {
+                selectAllTop.checked = allChecked;
+            }
+
+            if (selectAllTable) {
+                selectAllTable.checked = allChecked;
+            }
+
+        });
+
+    });
+
+});
+
+</script>
+
+<?php
+
+    endif;
+
+endif;
+
+?>
 
 </div>
