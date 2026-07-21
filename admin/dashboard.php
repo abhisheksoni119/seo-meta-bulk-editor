@@ -79,7 +79,10 @@ if ( 'update' === $smbe_action && $validated ) {
 
 		<?php wp_nonce_field( 'smbe_bulk_update', 'smbe_nonce' ); ?>
 
+		<label for="smbe_bulk_data"><strong>Bulk SEO Data</strong></label>
+
 		<textarea
+			id="smbe_bulk_data"
 			name="bulk_data"
 			rows="18"
 			style="width:100%;font-family:monospace;"
@@ -137,7 +140,7 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 			<p>Please select at least one row before updating.</p>
 		</div>
 		<?php elseif ( is_array( $update_result ) ) : ?>
-		<div class="notice notice-success">
+		<div class="notice <?php echo $update_result['failed'] > 0 ? 'notice-warning' : 'notice-success'; ?>">
 			<p>
 				<strong>Update complete.</strong>
 				Updated: <?php echo esc_html( $update_result['updated'] ); ?> &nbsp;|&nbsp;
@@ -153,7 +156,7 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 
 			<thead>
 				<tr>
-					<th width="40"></th>
+					<th width="40"><span class="screen-reader-text">Select</span></th>
 					<th width="70">Status</th>
 					<th width="180">Validation</th>
 					<th width="70">ID</th>
@@ -194,6 +197,7 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 							type="checkbox"
 							name="selected_rows[]"
 							value="<?php echo esc_attr( $found_post_id ); ?>"
+							aria-label="<?php echo esc_attr( $current_title ); ?>"
 							checked
 						>
 						<?php endif; ?>
@@ -203,13 +207,13 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 						<?php
 						switch ( $row['status'] ) {
 							case 'success':
-								echo '✅';
+								echo '<span aria-hidden="true">✅</span><span class="screen-reader-text">Ready</span>';
 								break;
 							case 'warning':
-								echo '⚠️';
+								echo '<span aria-hidden="true">⚠️</span><span class="screen-reader-text">Warning</span>';
 								break;
 							default:
-								echo '❌';
+								echo '<span aria-hidden="true">❌</span><span class="screen-reader-text">Error</span>';
 						}
 						?>
 					</td>
