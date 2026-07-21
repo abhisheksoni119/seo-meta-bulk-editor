@@ -14,6 +14,7 @@ $validated     = false;
 $rows          = array();
 $summary       = array();
 $update_result = null;
+$empty_input   = $smbe_action && '' === trim( $bulk_data );
 
 if ( $smbe_action && ! empty( $bulk_data ) ) {
 
@@ -103,6 +104,12 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 			</button>
 		</p>
 
+		<?php if ( $empty_input ) : ?>
+		<div class="notice notice-warning">
+			<p>Please enter some data before validating.</p>
+		</div>
+		<?php endif; ?>
+
 		<?php if ( $validated ) : ?>
 
 		<div style="background:#fff;border:1px solid #ccd0d4;padding:18px;margin:20px 0;">
@@ -140,7 +147,15 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 			<p>Please select at least one row before updating.</p>
 		</div>
 		<?php elseif ( is_array( $update_result ) ) : ?>
-		<div class="notice <?php echo $update_result['failed'] > 0 ? 'notice-warning' : 'notice-success'; ?>">
+		<?php
+		$notice_class = 'notice-success';
+		if ( $update_result['failed'] > 0 ) {
+			$notice_class = 'notice-warning';
+		} elseif ( 0 === $update_result['updated'] && $update_result['skipped'] > 0 && 0 === $update_result['failed'] ) {
+			$notice_class = 'notice-warning';
+		}
+		?>
+		<div class="notice <?php echo esc_attr( $notice_class ); ?>">
 			<p>
 				<strong>Update complete.</strong>
 				Updated: <?php echo esc_html( $update_result['updated'] ); ?> &nbsp;|&nbsp;
@@ -169,13 +184,13 @@ URL | SEO Title | Meta Description"><?php echo esc_textarea( $bulk_data ); ?></t
 
 			<tbody>
 
-			<?php foreach ( $rows as $index => $row ) : ?>
+			<?php foreach ( $rows as $row ) : ?>
 
 				<?php
 				$found_post_id = smbe_find_post_by_url( $row['url'] );
+				$post          = $found_post_id ? get_post( $found_post_id ) : null;
 
-				if ( $found_post_id ) {
-					$post          = get_post( $found_post_id );
+				if ( $post ) {
 					$type          = get_post_type( $found_post_id );
 					$current_title = $post->post_title;
 					$display_id    = $found_post_id;
